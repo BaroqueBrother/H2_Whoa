@@ -60,6 +60,8 @@ float ratio = 0;
 float concentration = 0;
 AirQualitySensor sensor = (A2);
 int quanAirValue;
+int quality;
+String DateTime, TimeOnly;
 
 
 
@@ -85,12 +87,15 @@ void setup() {
     pinMode(relayPin,OUTPUT);
     pinMode(soilPin,INPUT);
     pinMode(dustPin, INPUT);
+    Time.zone(-7);
+    Particle.syncTime();
 }
 
 void loop() {
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(0, 0);
+  displayOLED();
   MQTT_connect();
   if ((millis()-last)>120000) {
     Serial.printf("Pinging MQTT \n");
@@ -121,9 +126,11 @@ void loop() {
             bmeAirPressure.publish(pressInhg);
             dustParticulates.publish(concentration);
             airQuality.publish(quanAirValue);
+          
         }
         last = millis();
     }
+    
 
     Adafruit_MQTT_Subscribe *subscription;
   while ((subscription = mqtt.readSubscription(1000))) {
@@ -146,32 +153,21 @@ void loop() {
     else{
     digitalWrite(relayPin,LOW);
     }
+  
 }
 float readTempF(){ // print temp every 60 seconds 
     float tempC;
     tempC = bme.readTemperature();
     temperature = map(tempC, 0.0, 100.0, 32.0, 212.0);
-    display.clearDisplay();
-    display.printf("Temperature %.01f \n",temperature);
-    Serial.printf("Temperature %.01f \n",temperature);
-    display.display();
     return(temperature);
 }
 float readHumidity() {
   humidRH = bme.readHumidity();
-  display.clearDisplay();
-  display.printf("Humidity %.01f \n",humidRH);
-  Serial.printf("Humidity %.01f \n",humidRH);
-  display.display();
   return(humidRH);
 }
 float readPressureInhg() {
   pressPA = bme.readPressure();
   pressInhg = pressPA * inhg;
-  display.clearDisplay();
-  display.printf("Air Pressure %.01f \n",pressInhg);
-  Serial.printf("Air Pressure %.01f \n",pressInhg);
-  display.display();
   return (pressInhg);
 }
 float readSoil(){
@@ -186,9 +182,6 @@ float readSoil(){
   last = millis();
   }
   Serial.printf("Soil Saturation %.01f \n", soilReading);
-  display.clearDisplay();
-  display.printf("Soil Saturation %.01f \n",soilReading);
-  display.display();
   return (pressInhg);
 
 }
@@ -203,8 +196,8 @@ float readDust(){
   return(concentration);
 }
 int readAirQuality(){
-  int quanAirValue = sensor.getValue();
-  int quality = sensor.slope();
+  quanAirValue = sensor.getValue();
+  quality = sensor.slope();
   Serial.printf("Air Quality %i \n", quanAirValue);
   
   if (quality == AirQualitySensor::FORCE_SIGNAL) {
@@ -221,6 +214,31 @@ int readAirQuality(){
   }
 return (quanAirValue);
 
+}
+
+void displayOLED(void){
+  display.clearDisplay();
+  display.printf("Temperature %.01f \n",temperature);
+  display.printf("Humidity %.01f \n",humidRH);
+  display.printf("Air Pressure %.01f \n",pressInhg);
+  display.printf("Soil Moisture %.01f \n",soilReading);
+  display.printf("Dust Concentration %.01f \n",concentration);
+  if (quality == AirQualitySensor::FORCE_SIGNAL) {
+    display.printf("High pollution! Force signal active \n");
+  }
+  else if (quality == AirQualitySensor::HIGH_POLLUTION) {
+    display.printf("High pollution \n");
+  }
+  else if (quality == AirQualitySensor::LOW_POLLUTION) {
+    display.printf("Low pollution \n");
+  }
+  else if (quality == AirQualitySensor::FRESH_AIR) {
+    display.printf("Fresh air \n");
+  }
+  DateTime = Time.timeStr();
+  TimeOnly = DateTime.substring(11,19);
+  display.printf("%s, %s\n",DateTime.c_str(),TimeOnly.c_str());
+  display.display();
 }
 
 void MQTT_connect() {
